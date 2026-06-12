@@ -7,8 +7,8 @@ VOCAB_SIZE = None
 BLOCK_SIZE = 128
 
 N_EMBD = 128
-N_HEAD = 8
-N_LAYER = 8
+N_HEAD = 4
+N_LAYER = 4
 
 with open("data/input.txt", "r") as f:
     text = f.read()
@@ -26,7 +26,7 @@ model = MiniGPT(
 )
 
 model.load_state_dict(
-    torch.load("mini_gpt--tiny_shakespeare.best_model.pth")
+    torch.load("mini_gpt--tiny_shakespeare.pth")
 )
 
 model.eval()
@@ -40,5 +40,5 @@ out = model.generate(
     max_new_tokens=300,
     temperature=0.8
 )
-print(out.tolist())
+# print(out.tolist())
 print(tokenizer.decode(out.tolist()[0]))

@@ -6,6 +6,7 @@ Arguments:
 - tokens: (N,)
 - block_size: int
 - batch_size: int
+- device: torch.device
 Return:
 - x: (B, T)
 - y: (B, T)
@@ -29,6 +30,6 @@ if __name__ == '__main__':
     tokens = torch.tensor([i for i in range(10)], dtype=torch.long)
     batch_size = 2
     device = torch.device("cpu")
-    x, y = get_batch(tokens, 4, batch_size)
+    x, y = get_batch(tokens, 4, batch_size, device)
     print(x)
     print(y)

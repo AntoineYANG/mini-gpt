@@ -15,9 +15,9 @@ VOCAB_SIZE = None
 BLOCK_SIZE = 128
 BATCH_SIZE = 32
 
-N_EMBD = 128
-N_HEAD = 8
-N_LAYER = 8
+N_EMBD = 256
+N_HEAD = 6
+N_LAYER = 4
 
 LR = 3e-4
 MAX_STEPS = 10000
@@ -39,7 +39,7 @@ print(f"device: {device}")
 # Prepare Data
 # =========================
 
-with open("data/input.txt", "r") as f:
+with open("data/tinyshakespeare.txt", "r") as f:
     text = f.read()
 
 tokenizer = Tokenizer(text)
@@ -125,7 +125,7 @@ for step in range(MAX_STEPS):
     # Backward
     # ------------------
 
-    optimizer.zero_grad()
+    optimizer.zero_grad(set_to_none=True)
         
     loss.backward()
         
@@ -165,6 +165,9 @@ torch.save(
     model.state_dict(),
     "mini_gpt--tiny_shakespeare.pth"
 )
+
+param_count = sum(p.numel() for p in model.parameters())
+print(f"Parameter count: {param_count}")
 
 ### save training history plot
 import matplotlib.pyplot as plt

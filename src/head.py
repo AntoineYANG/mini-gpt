@@ -12,13 +12,18 @@ class Head(nn.Module):
         self.query = nn.Linear(n_embd, head_size, bias=False)
         self.value = nn.Linear(n_embd, head_size, bias=False)
 
+        self.register_buffer(
+            "tril",
+            torch.tril(torch.ones(1000, 1000))
+        )
+
     def forward(self, x):
         K = self.key(x) # (B,T,C)
         Q = self.query(x) # (B,T,C)
         V = self.value(x) # (B,T,C)
         scores = Q @ K.transpose(-2, -1) / self.head_size ** 0.5
-        _,T,__ = x.shape
-        mask = torch.tril(torch.ones(T, T, device=x.device))
+        _B,T,__ = x.shape
+        mask = self.tril[:T, :T]
         scores = scores.masked_fill(mask == 0, float('-inf'))
         weights = F.softmax(scores, dim=-1)
         out = weights @ V

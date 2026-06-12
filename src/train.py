@@ -16,12 +16,24 @@ BLOCK_SIZE = 128
 BATCH_SIZE = 32
 
 N_EMBD = 128
-N_HEAD = 4
-N_LAYER = 4
+N_HEAD = 8
+N_LAYER = 8
 
 LR = 3e-4
 MAX_STEPS = 10000
 EVAL_INTERVAL = 100
+
+
+# =========================
+# Device
+# =========================
+
+device = torch.device(
+    "cuda" if torch.cuda.is_available()
+    else "cpu"
+)
+print(f"device: {device}")
+
 
 # =========================
 # Prepare Data
@@ -46,22 +58,10 @@ val_data = tokens[n:]
 
 def get_batch_from_split(split):
     if split == "train":
-        return get_batch(train_data, BLOCK_SIZE, BATCH_SIZE)
+        return get_batch(train_data, BLOCK_SIZE, BATCH_SIZE, device)
     elif split == "val":
-        return get_batch(val_data, BLOCK_SIZE, BATCH_SIZE)
+        return get_batch(val_data, BLOCK_SIZE, BATCH_SIZE, device)
     return None, None
-
-
-# =========================
-# Device
-# =========================
-
-device = torch.device(
-    "cuda" if torch.cuda.is_available()
-    else "cpu"
-)
-device = torch.device("cpu")
-print(f"device: {device}")
 
 
 # =========================
@@ -100,6 +100,9 @@ optimizer = AdamW(
 
 best_val_loss = float('inf')
 
+train_history = []
+val_history = []
+
 for step in range(MAX_STEPS):
 
     model.train()
@@ -110,18 +113,13 @@ for step in range(MAX_STEPS):
     # Forward
     # ------------------
 
-    logits = model(x)
+    logits, loss = model(x, y)
 
     # logits:
     # (B, T, vocab_size)
 
     # y:
     # (B, T)
-
-    loss = criterion(
-        logits.view(-1, VOCAB_SIZE),    # (B*T, vocab_size)
-        y.view(-1)                      # (B*T,)
-    )
 
     # ------------------
     # Backward
@@ -145,6 +143,8 @@ for step in range(MAX_STEPS):
             get_batch_from_split,
             eval_iters=100
         )
+        train_history.append(losses['train'])
+        val_history.append(losses['val'])
         print(
             f"step {step}: "
             f"train {losses['train']:.4f}, val {losses['val']:.4f}"
@@ -165,3 +165,13 @@ torch.save(
     model.state_dict(),
     "mini_gpt--tiny_shakespeare.pth"
 )
+
+### save training history plot
+import matplotlib.pyplot as plt
+plt.plot(train_history, label="train")
+plt.plot(val_history, label="val")
+plt.xlabel("Evaluation Step")
+plt.ylabel("Loss")
+plt.title("Training and Validation Loss")
+plt.legend()
+plt.savefig("training_history.png")

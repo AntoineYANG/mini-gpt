@@ -58,7 +58,7 @@ class MiniGPT(nn.Module):
             vocab_size
         )
 
-    def forward(self, idx):
+    def forward(self, idx, targets=None):
         _, T = idx.shape    # (B, T)
 
         token_emb = self.token_embedding_table(idx)  # (B, T, n_embd)
@@ -76,7 +76,15 @@ class MiniGPT(nn.Module):
 
         logits = self.lm_head(x)  # (B, T, vocab_size)
 
-        return logits
+        if targets is None:
+            loss = None
+        else:
+            B, T, vocab_size = logits.shape
+            loss = F.cross_entropy(
+                logits.view(B*T, vocab_size),
+                targets.view(-1)
+            )   # loss = -log(P(targets|idx)) averaged over the batch and time dimension
+        return logits, loss
 
     @torch.no_grad()
     def estimate_loss(self, criterion, get_batch_from_split, eval_iters):
@@ -92,12 +100,7 @@ class MiniGPT(nn.Module):
 
             for k in range(eval_iters):
                 x, y = get_batch_from_split(split)
-                logits = self(x)
-                B, T, C = logits.shape
-                loss = criterion(
-                    logits.view(B*T, C),
-                    y.view(-1)
-                )   # loss = -log(P(y|x)) averaged over the batch and time dimension
+                logits, loss = self(x, y)
                 split_loss[k] = loss.item()
 
             losses[split] = split_loss.mean().item()
@@ -112,7 +115,7 @@ class MiniGPT(nn.Module):
 
         for _ in range(max_new_tokens):
 
-            logits = self(idx[:,-self.block_size:])  # (B, T, vocab_size)
+            logits, _ = self(idx[:,-self.block_size:])  # (B, T, vocab_size)
 
             next_logits = logits[:, -1]  # (B, vocab_size)
 
@@ -152,6 +155,6 @@ if __name__ == "__main__":
         [2,3,4,5]
     ])
 
-    logits = model(idx)
+    logits, _ = model(idx)
 
     print(logits.shape)

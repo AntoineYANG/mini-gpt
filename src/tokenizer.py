@@ -1,24 +1,21 @@
-text = "I love NLP"
-chars = sorted(list(set(text)))
+class Tokenizer:
+    def __init__(self, text):
+        self.chars = sorted(list(set(text)))
+        self.stoi = {
+            char: i
+            for i, char in enumerate(self.chars)
+        }
+        self.itos = {
+            i: char
+            for i, char in enumerate(self.chars)
+        }
 
-stoi = {
-    char: i
-    for i, char in enumerate(chars)
-}
+    def encode(self, s):
+        return [self.stoi[c] for c in s]
 
-itos = {
-    i: char
-    for i, char in enumerate(chars)
-}
+    def decode(self, l):
+        return "".join([self.itos[c] for c in l])
 
-def encode(s):
-    return [stoi[c] for c in s]
-
-def decode(l):
-    return "".join([itos[c] for c in l])
-
-#encoded = encode(text)
-#decoded = decode(encoded)
-
-#print(encoded)
-#print(decoded)
+    def vocab_size(self):
+        return len(self.chars)
+        

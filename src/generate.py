@@ -1,19 +1,44 @@
 import torch
 
 from mini_gpt import MiniGPT
-from tokenizer import encode, decode
+from tokenizer import Tokenizer
 
-model = MiniGPT()
+VOCAB_SIZE = None
+BLOCK_SIZE = 128
+
+N_EMBD = 128
+N_HEAD = 4
+N_LAYER = 4
+
+with open("data/input.txt", "r") as f:
+    text = f.read()
+
+tokenizer = Tokenizer(text)
+
+VOCAB_SIZE = tokenizer.vocab_size()
+
+model = MiniGPT(
+    vocab_size=VOCAB_SIZE,
+    block_size=BLOCK_SIZE,
+    n_embd=N_EMBD,
+    n_head=N_HEAD,
+    n_layer=N_LAYER
+)
 
 model.load_state_dict(
-    torch.load("mini_gpt.pth")
+    torch.load("mini_gpt--tiny_shakespeare.pth")
 )
 
 model.eval()
 
-g = model.generate(
-    idx=torch.tensor(encode("I")),
-    max_new_tokens=20
+context = torch.tensor(
+    [tokenizer.encode("First")],
+    dtype=torch.long
 )
-print(g)
-print(decode(g.tolist()))
+out = model.generate(
+    idx=context,
+    max_new_tokens=300,
+    temperature=0.8
+)
+print(out.tolist())
+print(tokenizer.decode(out.tolist()[0]))

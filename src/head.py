@@ -25,7 +25,7 @@ class Head(nn.Module):
         return out
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self, n_embd, n_head):
+    def __init__(self, n_embd, n_head, dropout=0.2):
         super().__init__()
         self.n_embd = n_embd
         self.n_head = n_head
@@ -34,12 +34,14 @@ class MultiHeadAttention(nn.Module):
             Head(n_embd, n_embd // n_head)
             for _ in range(n_head)
         ])
+        self.dropout = nn.Dropout(dropout)
 
     def forward(self, x):
         out = torch.cat(
             [h(x) for h in self.heads],
             dim=-1
         )
+        out = self.dropout(out)
         return out
 
 if __name__ == "__main__":
@@ -51,7 +53,8 @@ if __name__ == "__main__":
 
     mha = MultiHeadAttention(
         n_embd=8,
-        n_head=2
+        n_head=2,
+        dropout=0.0
     )
 
     out = mha(x)

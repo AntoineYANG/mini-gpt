@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 from torch.optim import AdamW
 
-from tokenizer import encode, chars
-from dataset import build_dataset, get_batch
+from tokenizer import Tokenizer
+from dataset import get_batch
 from mini_gpt import MiniGPT
 
 
@@ -11,27 +11,45 @@ from mini_gpt import MiniGPT
 # Hyper Parameters
 # =========================
 
-VOCAB_SIZE = len(chars)
-BLOCK_SIZE = 4
-BATCH_SIZE = 2
+VOCAB_SIZE = None
+BLOCK_SIZE = 128
+BATCH_SIZE = 32
 
-N_EMBD = 8
-N_HEAD = 2
-N_LAYER = 2
+N_EMBD = 128
+N_HEAD = 4
+N_LAYER = 4
 
-LR = 1e-3
+LR = 3e-4
 MAX_STEPS = 10000
-
+EVAL_INTERVAL = 100
 
 # =========================
 # Prepare Data
 # =========================
 
-text = "I love NLP"
+with open("data/input.txt", "r") as f:
+    text = f.read()
 
-tokens = encode(text)
+tokenizer = Tokenizer(text)
 
-xs, ys = build_dataset(tokens, BLOCK_SIZE)
+VOCAB_SIZE = tokenizer.vocab_size()
+
+tokens = torch.tensor(
+    tokenizer.encode(text),
+    dtype=torch.long
+)
+
+n = int(0.9 * len(tokens))
+
+train_data = tokens[:n]
+val_data = tokens[n:]
+
+def get_batch_from_split(split):
+    if split == "train":
+        return get_batch(train_data, BLOCK_SIZE, BATCH_SIZE)
+    elif split == "val":
+        return get_batch(val_data, BLOCK_SIZE, BATCH_SIZE)
+    return None, None
 
 
 # =========================
@@ -80,27 +98,29 @@ optimizer = AdamW(
 # Training Loop
 # =========================
 
+best_val_loss = float('inf')
+
 for step in range(MAX_STEPS):
 
     model.train()
 
-    xb, yb = get_batch(xs, ys, BATCH_SIZE)
+    x, y = get_batch_from_split("train")
 
     # ------------------
     # Forward
     # ------------------
 
-    logits = model(xb)
+    logits = model(x)
 
     # logits:
     # (B, T, vocab_size)
 
-    # yb:
+    # y:
     # (B, T)
 
     loss = criterion(
         logits.view(-1, VOCAB_SIZE),    # (B*T, vocab_size)
-        yb.view(-1)                # (B*T,)
+        y.view(-1)                      # (B*T,)
     )
 
     # ------------------
@@ -119,11 +139,22 @@ for step in range(MAX_STEPS):
     # Logging
     # ------------------
 
-    if step % 100 == 0:
-        print(
-            f"step={step} "
-            f"loss={total_loss:.4f}"
+    if step % EVAL_INTERVAL == 0:
+        losses = model.estimate_loss(
+            criterion,
+            get_batch_from_split,
+            eval_iters=100
         )
+        print(
+            f"step {step}: "
+            f"train {losses['train']:.4f}, val {losses['val']:.4f}"
+        )
+        if losses['val'] < best_val_loss:
+            best_val_loss = losses['val']
+            torch.save(
+                model.state_dict(),
+                "mini_gpt--tiny_shakespeare.best_model.pth"
+            )
 
 
 # =========================
@@ -132,5 +163,5 @@ for step in range(MAX_STEPS):
 
 torch.save(
     model.state_dict(),
-    "mini_gpt.pth"
+    "mini_gpt--tiny_shakespeare.pth"
 )

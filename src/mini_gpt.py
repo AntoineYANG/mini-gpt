@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+import torch.nn.functional as F
 from transformer_block import TransformerBlock
 
 class MiniGPT(nn.Module):
@@ -28,6 +29,7 @@ class MiniGPT(nn.Module):
     ):
         super().__init__()
 
+        self.vocab_size = vocab_size
         self.block_size = block_size
         
         self.token_embedding_table = nn.Embedding(
@@ -77,26 +79,60 @@ class MiniGPT(nn.Module):
         return logits
 
     @torch.no_grad()
-    def generate(self, idx, max_new_tokens):
+    def estimate_loss(self, criterion, get_batch_from_split, eval_iters):
+        was_training = self.training
+
+        if was_training:
+            self.eval()
+
+        losses = {}
+        
+        for split in ["train", "val"]:
+            split_loss = torch.zeros(eval_iters)
+
+            for k in range(eval_iters):
+                x, y = get_batch_from_split(split)
+                logits = self(x)
+                B, T, C = logits.shape
+                loss = criterion(
+                    logits.view(B*T, C),
+                    y.view(-1)
+                )   # loss = -log(P(y|x)) averaged over the batch and time dimension
+                split_loss[k] = loss.item()
+
+            losses[split] = split_loss.mean().item()
+
+        if was_training:
+            self.train()
+
+        return losses
+
+    @torch.no_grad()
+    def generate(self, idx, max_new_tokens, temperature=0.8):
 
         for _ in range(max_new_tokens):
 
-            logits = self(idx[-self.block_size:])  # (T, vocab_size)
+            logits = self(idx[:,-self.block_size:])  # (B, T, vocab_size)
 
-            next_logits = logits[-1]  # (vocab_size,)
+            next_logits = logits[:, -1]  # (B, vocab_size)
 
-            next_token = torch.argmax(
-                next_logits,
+            probs = F.softmax(
+                next_logits / temperature,
                 dim=-1
-            )  # ()
+            )  # (B, vocab_size)
+
+            next_token = torch.multinomial(
+                probs,
+                num_samples=1
+            )  # (B, 1)
 
             idx = torch.cat(
                 [
                     idx,
-                    next_token.unsqueeze(0)
+                    next_token
                 ],
-                dim=0
-            )  # (T+1,)
+                dim=1
+            )  # (B, T+1)
 
         return idx
 

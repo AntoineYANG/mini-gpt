@@ -20,7 +20,7 @@ N_HEAD = 2
 N_LAYER = 2
 
 LR = 1e-3
-EPOCHS = 1000
+MAX_STEPS = 10000
 
 
 # =========================
@@ -80,11 +80,9 @@ optimizer = AdamW(
 # Training Loop
 # =========================
 
-for epoch in range(EPOCHS):
+for step in range(MAX_STEPS):
 
     model.train()
-
-    total_loss = 0
 
     xb, yb = get_batch(xs, ys, BATCH_SIZE)
 
@@ -115,15 +113,15 @@ for epoch in range(EPOCHS):
         
     optimizer.step()
 
-    total_loss += loss.item()
+    total_loss = loss.item()
 
     # ------------------
     # Logging
     # ------------------
 
-    if epoch % 100 == 0:
+    if step % 100 == 0:
         print(
-            f"epoch={epoch} "
+            f"step={step} "
             f"loss={total_loss:.4f}"
         )
 

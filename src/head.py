@@ -13,11 +13,11 @@ class Head(nn.Module):
         self.value = nn.Linear(n_embd, head_size, bias=False)
 
     def forward(self, x):
-        K = self.key(x)
-        Q = self.query(x)
-        V = self.value(x)
+        K = self.key(x) # (B,T,C)
+        Q = self.query(x) # (B,T,C)
+        V = self.value(x) # (B,T,C)
         scores = Q @ K.transpose(-2, -1) / self.head_size ** 0.5
-        T = x.shape[0]
+        _,T,__ = x.shape
         mask = torch.tril(torch.ones(T, T, device=x.device))
         scores = scores.masked_fill(mask == 0, float('-inf'))
         weights = F.softmax(scores, dim=-1)
@@ -43,7 +43,11 @@ class MultiHeadAttention(nn.Module):
         return out
 
 if __name__ == "__main__":
-    x = torch.randn(4, 8)
+    x = torch.randn(2, 4, 8)
+
+    head = Head(n_embd=8, head_size=4)
+    out = head(x)
+    print(out.shape)
 
     mha = MultiHeadAttention(
         n_embd=8,

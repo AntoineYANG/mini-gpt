@@ -3,7 +3,7 @@ import torch.nn as nn
 from torch.optim import AdamW
 
 from tokenizer import encode, chars
-from dataset import slide_window
+from dataset import build_dataset, get_batch
 from mini_gpt import MiniGPT
 
 
@@ -13,6 +13,7 @@ from mini_gpt import MiniGPT
 
 VOCAB_SIZE = len(chars)
 BLOCK_SIZE = 4
+BATCH_SIZE = 2
 
 N_EMBD = 8
 N_HEAD = 2
@@ -30,14 +31,7 @@ text = "I love NLP"
 
 tokens = encode(text)
 
-samples = slide_window(
-    tokens,
-    BLOCK_SIZE
-)
-
-# TODO:
-# x_train
-# y_train
+xs, ys = build_dataset(tokens, BLOCK_SIZE)
 
 
 # =========================
@@ -50,6 +44,7 @@ device = torch.device(
 )
 device = torch.device("cpu")
 print(f"device: {device}")
+
 
 # =========================
 # Model
@@ -91,52 +86,36 @@ for epoch in range(EPOCHS):
 
     total_loss = 0
 
-    for x, y in samples:
+    xb, yb = get_batch(xs, ys, BATCH_SIZE)
 
-        # ------------------
-        # tensor化
-        # ------------------
+    # ------------------
+    # Forward
+    # ------------------
 
-        x = torch.tensor(
-            x,
-            dtype=torch.long,
-            device=device
-        )
+    logits = model(xb)
 
-        y = torch.tensor(
-            y,
-            dtype=torch.long,
-            device=device
-        )
+    # logits:
+    # (B, T, vocab_size)
 
-        # ------------------
-        # Forward
-        # ------------------
+    # yb:
+    # (B, T)
 
-        logits = model(x)
+    loss = criterion(
+        logits.view(-1, VOCAB_SIZE),    # (B*T, vocab_size)
+        yb.view(-1)                # (B*T,)
+    )
 
-        # logits:
-        # (T, vocab_size)
+    # ------------------
+    # Backward
+    # ------------------
 
-        # y:
-        # (T,)
-
-        loss = criterion(
-            logits.view(-1, VOCAB_SIZE),
-            y.view(-1)
-        )
-
-        # ------------------
-        # Backward
-        # ------------------
-
-        optimizer.zero_grad()
+    optimizer.zero_grad()
         
-        loss.backward()
+    loss.backward()
         
-        optimizer.step()
+    optimizer.step()
 
-        total_loss += loss.item()
+    total_loss += loss.item()
 
     # ------------------
     # Logging
@@ -148,17 +127,11 @@ for epoch in range(EPOCHS):
             f"loss={total_loss:.4f}"
         )
 
-        pred = logits.argmax(dim=-1)
-
-        print("pred =", pred.tolist())
-        print("gold =", y.tolist())
-
 
 # =========================
 # Save Model
 # =========================
 
-# TODO:
 torch.save(
     model.state_dict(),
     "mini_gpt.pth"

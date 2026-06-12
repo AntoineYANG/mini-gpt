@@ -57,22 +57,22 @@ class MiniGPT(nn.Module):
         )
 
     def forward(self, idx):
-        T = idx.shape[0]
+        _, T = idx.shape    # (B, T)
 
-        token_emb = self.token_embedding_table(idx)  # (T, n_embd)
+        token_emb = self.token_embedding_table(idx)  # (B, T, n_embd)
         pos = torch.arange(
             T,
             device=idx.device
         )  # (T,)
-        pos_emb = self.position_embedding_table(pos)  # (T, n_embd)
+        pos_emb = self.position_embedding_table(pos)  # (T, n_embd) broadcast -> (1, T, n_embd)
 
-        x = token_emb + pos_emb  # (T, n_embd)
+        x = token_emb + pos_emb  # (B, T, n_embd)
 
-        x = self.blocks(x)  # (T, n_embd)
+        x = self.blocks(x)  # (B, T, n_embd)
 
-        x = self.ln_f(x)  # (T, n_embd)
+        x = self.ln_f(x)  # (B, T, n_embd)
 
-        logits = self.lm_head(x)  # (T, vocab_size)
+        logits = self.lm_head(x)  # (B, T, vocab_size)
 
         return logits
 
@@ -111,7 +111,10 @@ if __name__ == "__main__":
         n_layer=2
     )
 
-    idx = torch.tensor([1,2,3,4])
+    idx = torch.tensor([
+        [1,2,3,4],
+        [2,3,4,5]
+    ])
 
     logits = model(idx)
 
